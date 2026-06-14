@@ -1,0 +1,689 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧型線上對答案系統</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@300;400;500;700;900&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans TC', sans-serif;
+            background-color: #f8fafc;
+        }
+        /* 自訂拉伸捲軸樣式 */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="min-h-screen text-slate-800 flex flex-col justify-between">
+
+    <!-- Toast 訊息提示元件 -->
+    <div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-100px] opacity-0 transition-all duration-300 ease-out flex items-center p-4 mb-4 w-full max-w-xs text-slate-500 bg-white rounded-xl shadow-lg border border-slate-100" role="alert">
+        <div id="toast-icon" class="inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg">
+            <!-- 這裡會動態插入 SVG -->
+        </div>
+        <div id="toast-message" class="ml-3 text-sm font-normal"></div>
+    </div>
+
+    <!-- 主要內容區 -->
+    <main class="container mx-auto px-4 py-8 max-w-6xl flex-grow">
+        <!-- 頂部標題區 -->
+        <header class="text-center mb-8">
+            <span class="px-3 py-1 text-xs font-bold text-indigo-600 bg-indigo-50 rounded-full uppercase tracking-wider">Exam Grader</span>
+            <h1 class="text-3xl md:text-4xl font-black mt-2 bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">智慧型線上對答案系統</h1>
+            <p class="text-slate-500 mt-2 text-sm md:text-base">支援直接拖曳檔案或貼上文字，智慧解析各種答案格式（例：<code class="bg-slate-100 px-1 py-0.5 rounded text-indigo-600 font-mono">1: A</code>, <code class="bg-slate-100 px-1 py-0.5 rounded text-indigo-600 font-mono">2. B</code>）</p>
+            
+            <!-- 快速試用按鈕 -->
+            <button onclick="loadDemoData()" class="mt-4 px-4 py-1.5 text-xs font-medium text-indigo-600 border border-indigo-200 rounded-full hover:bg-indigo-50 transition-all shadow-sm">
+                ⚡ 載入測試範例資料
+            </button>
+        </header>
+
+        <!-- 輸入控制區 -->
+        <section class="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+            
+            <!-- 作答檔卡片 (User Answers) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 transition-all hover:shadow-md">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="p-2 bg-blue-50 text-blue-600 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"></path></svg>
+                        </div>
+                        <h2 class="text-lg font-bold text-slate-800">1. 我的作答內容</h2>
+                    </div>
+                    <span class="text-xs text-slate-400 font-medium">請選擇上傳或在下方輸入</span>
+                </div>
+
+                <!-- 拖曳上傳區域 -->
+                <div id="drop-zone-user" class="border-2 border-dashed border-slate-200 hover:border-indigo-400 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-50 hover:bg-indigo-50/20 group relative mb-4">
+                    <input type="file" id="userFile" accept=".txt" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="flex flex-col items-center pointer-events-none">
+                        <svg class="w-8 h-8 text-slate-400 group-hover:text-indigo-500 mb-2 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <p class="text-sm font-semibold text-slate-600 group-hover:text-indigo-600" id="userFileName">點擊或拖曳檔案至此 (.txt)</p>
+                        <p class="text-xs text-slate-400 mt-1">支援一般文字文件</p>
+                    </div>
+                </div>
+
+                <!-- 文字輸入區域 -->
+                <div>
+                    <label for="userText" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">手動貼上區域</label>
+                    <textarea id="userText" class="w-full h-40 p-3 text-sm font-mono border border-slate-200 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all placeholder-slate-400" placeholder="格式範例：&#13;1: A&#13;2: B&#13;3: C"></textarea>
+                </div>
+            </div>
+
+            <!-- 解答檔卡片 (Answer Key) -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 transition-all hover:shadow-md">
+                <div class="flex items-center justify-between mb-4">
+                    <div class="flex items-center gap-2">
+                        <div class="p-2 bg-emerald-50 text-emerald-600 rounded-lg">
+                            <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        </div>
+                        <h2 class="text-lg font-bold text-slate-800">2. 標準解答檔</h2>
+                    </div>
+                    <span class="text-xs text-slate-400 font-medium">請選擇上傳或在下方輸入</span>
+                </div>
+
+                <!-- 拖曳上傳區域 -->
+                <div id="drop-zone-answer" class="border-2 border-dashed border-slate-200 hover:border-emerald-400 rounded-xl p-5 text-center cursor-pointer transition-all bg-slate-50 hover:bg-emerald-50/20 group relative mb-4">
+                    <input type="file" id="answerFile" accept=".txt" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                    <div class="flex flex-col items-center pointer-events-none">
+                        <svg class="w-8 h-8 text-slate-400 group-hover:text-emerald-500 mb-2 transition-colors" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"></path></svg>
+                        <p class="text-sm font-semibold text-slate-600 group-hover:text-emerald-600" id="answerFileName">點擊或拖曳檔案至此 (.txt)</p>
+                        <p class="text-xs text-slate-400 mt-1">支援一般文字文件</p>
+                    </div>
+                </div>
+
+                <!-- 文字輸入區域 -->
+                <div>
+                    <label for="answerText" class="block text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">手動貼上區域</label>
+                    <textarea id="answerText" class="w-full h-40 p-3 text-sm font-mono border border-slate-200 rounded-xl focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition-all placeholder-slate-400" placeholder="格式範例：&#13;1: B&#13;2: B&#13;3: A"></textarea>
+                </div>
+            </div>
+
+        </section>
+
+        <!-- 比對設定與主按鈕區 -->
+        <section class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 mb-8">
+            <div class="flex flex-col md:flex-row items-center justify-between gap-6">
+                <!-- 篩選模式 -->
+                <div class="flex flex-col gap-2 w-full md:w-auto">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">顯示篩選模式</span>
+                    <div class="flex rounded-xl bg-slate-100 p-1 w-full md:w-80">
+                        <button onclick="setMode('all')" id="btn-mode-all" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-800 shadow-sm">
+                            列出所有題號
+                        </button>
+                        <button onclick="setMode('wrong')" id="btn-mode-wrong" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-800">
+                            僅列出答錯
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 視圖切換 -->
+                <div class="flex flex-col gap-2 w-full md:w-auto">
+                    <span class="text-xs font-semibold text-slate-500 uppercase tracking-wider">介面呈現視圖</span>
+                    <div class="flex rounded-xl bg-slate-100 p-1 w-full md:w-80">
+                        <button onclick="setView('cards')" id="btn-view-cards" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-800 shadow-sm">
+                            精美卡片視圖
+                        </button>
+                        <button onclick="setView('table')" id="btn-view-table" class="flex-1 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-800">
+                            傳統表格視圖
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 比對按鈕 -->
+                <div class="flex gap-3 w-full md:w-auto self-end">
+                    <button onclick="resetSystem()" class="px-5 py-3 border border-slate-200 hover:bg-slate-50 text-slate-600 rounded-xl font-bold transition-all flex items-center justify-center gap-2">
+                        重設
+                    </button>
+                    <button onclick="compareAnswers()" class="flex-1 md:flex-initial px-8 py-3 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-700 hover:to-violet-700 text-white rounded-xl font-bold shadow-lg shadow-indigo-200 hover:shadow-indigo-300 transform hover:-translate-y-0.5 transition-all flex items-center justify-center gap-2">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"></path></svg>
+                        立即比對答案
+                    </button>
+                </div>
+            </div>
+        </section>
+
+        <!-- 結果呈現區 (初始隱藏) -->
+        <section id="results-section" class="hidden transition-all duration-500">
+            
+            <!-- 儀表板總覽 -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                
+                <!-- 得分圓環 (大卡片) -->
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 flex flex-col items-center justify-center relative overflow-hidden">
+                    <div class="absolute -top-10 -right-10 w-24 h-24 bg-indigo-50 rounded-full opacity-50 pointer-events-none"></div>
+                    <span class="text-sm font-semibold text-slate-400 mb-4">成績評分</span>
+                    
+                    <!-- SVG 動態環 -->
+                    <div class="relative flex items-center justify-center">
+                        <svg class="w-32 h-32 transform -rotate-90">
+                            <!-- 背景環 -->
+                            <circle cx="64" cy="64" r="50" stroke="#f1f5f9" stroke-width="12" fill="transparent" />
+                            <!-- 前景進度環 -->
+                            <circle id="score-ring" cx="64" cy="64" r="50" stroke="#4f46e5" stroke-width="12" fill="transparent" 
+                                    stroke-dasharray="314.16" stroke-dashoffset="314.16" class="transition-all duration-1000 ease-out" />
+                        </svg>
+                        <div class="absolute text-center">
+                            <span id="score-text-integer" class="text-4xl font-extrabold tracking-tight text-slate-800">0</span>
+                            <span id="score-text-decimal" class="text-lg font-bold text-slate-500">.0</span>
+                            <p class="text-[10px] font-bold text-slate-400 tracking-wider">SCORE</p>
+                        </div>
+                    </div>
+                    
+                    <div id="score-level-badge" class="mt-4 px-3 py-1 rounded-full text-xs font-semibold"></div>
+                </div>
+
+                <!-- 統計數值 (總題、對、錯、空) -->
+                <div class="md:col-span-2 grid grid-cols-2 gap-4">
+                    <!-- 總題數 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between">
+                        <span class="text-sm font-semibold text-slate-400">總核對題數</span>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span id="stat-total" class="text-3xl font-extrabold text-slate-800">0</span>
+                            <span class="text-sm font-medium text-slate-400">題</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">扣除不計分 `-` 題型</div>
+                    </div>
+                    <!-- 答對數 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between">
+                        <span class="text-sm font-semibold text-slate-400 text-emerald-600">答對題數</span>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span id="stat-correct" class="text-3xl font-extrabold text-emerald-600">0</span>
+                            <span class="text-sm font-medium text-emerald-400">題</span>
+                        </div>
+                        <div id="stat-correct-percent" class="text-xs text-emerald-500 font-semibold mt-2">正確率: 0%</div>
+                    </div>
+                    <!-- 答錯數 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between">
+                        <span class="text-sm font-semibold text-slate-400 text-rose-600">答錯題數</span>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span id="stat-wrong" class="text-3xl font-extrabold text-rose-600">0</span>
+                            <span class="text-sm font-medium text-rose-400">題</span>
+                        </div>
+                        <div id="stat-wrong-percent" class="text-xs text-rose-500 font-semibold mt-2">錯誤率: 0%</div>
+                    </div>
+                    <!-- 未作答數 -->
+                    <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-5 flex flex-col justify-between">
+                        <span class="text-sm font-semibold text-slate-400 text-amber-600">未作答題數</span>
+                        <div class="flex items-baseline gap-2 mt-2">
+                            <span id="stat-empty" class="text-3xl font-extrabold text-amber-500">0</span>
+                            <span class="text-sm font-medium text-amber-400">題</span>
+                        </div>
+                        <div class="text-xs text-slate-400 mt-2">未上傳作答或空白者</div>
+                    </div>
+                </div>
+
+            </div>
+
+            <!-- 比對細節清單 -->
+            <div class="bg-white rounded-2xl shadow-sm border border-slate-100 p-6">
+                <div class="flex items-center justify-between mb-6">
+                    <h3 class="text-lg font-bold text-slate-800">核對詳情</h3>
+                    <span id="results-count-label" class="text-xs font-semibold px-2.5 py-1 bg-slate-100 text-slate-600 rounded-full"></span>
+                </div>
+
+                <!-- 卡片視圖器 (預設) -->
+                <div id="view-container-cards" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+                    <!-- 動態載入卡片 -->
+                </div>
+
+                <!-- 表格視圖器 (隱藏) -->
+                <div id="view-container-table" class="hidden overflow-x-auto rounded-xl border border-slate-100">
+                    <table class="w-full text-sm text-center">
+                        <thead class="bg-slate-50 text-slate-500 uppercase font-semibold text-xs border-b border-slate-100">
+                            <tr>
+                                <th class="py-3 px-4">題號</th>
+                                <th class="py-3 px-4">我的答案</th>
+                                <th class="py-3 px-4">正確答案</th>
+                                <th class="py-3 px-4">結果</th>
+                            </tr>
+                        </thead>
+                        <tbody id="table-rows" class="divide-y divide-slate-100 text-slate-700">
+                            <!-- 動態載入表格 -->
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- 查無資料提示 -->
+                <div id="empty-state" class="hidden py-12 text-center">
+                    <svg class="mx-auto h-12 w-12 text-slate-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M9.879 7.519c1.171-1.025 3.071-1.025 4.242 0 1.172 1.025 1.172 2.687 0 3.712-.203.179-.43.326-.67.442-.745.361-1.45.999-1.45 1.827v.75M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9 5.25h.008v.008H12v-.008z"></path></svg>
+                    <p class="mt-2 text-sm text-slate-500 font-medium">在當前篩選條件下，無任何相符的題目。</p>
+                </div>
+
+            </div>
+
+        </section>
+    </main>
+
+    <!-- 底部版權 -->
+    <footer class="py-6 text-center text-xs text-slate-400 border-t border-slate-100 bg-white">
+        <p>© 2026 智慧線上對答案系統 · 讓作答分析更精準</p>
+    </footer>
+
+    <script>
+        // 全域狀態管理
+        let currentMode = 'all'; // 'all' or 'wrong'
+        let currentView = 'cards'; // 'cards' or 'table'
+        let parsedUserAnswers = {};
+        let parsedCorrectAnswers = {};
+
+        // 初始化
+        window.onload = function() {
+            setupDragAndDrop('drop-zone-user', 'userFile', 'userFileName', (content) => {
+                document.getElementById('userText').value = content;
+                showToast("success", "作答檔上傳成功！");
+            });
+            setupDragAndDrop('drop-zone-answer', 'answerFile', 'answerFileName', (content) => {
+                document.getElementById('answerText').value = content;
+                showToast("success", "解答檔上傳成功！");
+            });
+
+            // 傳統 File Input 的 change 監聽器
+            document.getElementById('userFile').addEventListener('change', function(e) {
+                if(e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    document.getElementById('userFileName').innerText = file.name;
+                    readFile(file, (content) => {
+                        document.getElementById('userText').value = content;
+                        showToast("success", `已讀取「${file.name}」`);
+                    });
+                }
+            });
+
+            document.getElementById('answerFile').addEventListener('change', function(e) {
+                if(e.target.files.length > 0) {
+                    const file = e.target.files[0];
+                    document.getElementById('answerFileName').innerText = file.name;
+                    readFile(file, (content) => {
+                        document.getElementById('answerText').value = content;
+                        showToast("success", `已讀取「${file.name}」`);
+                    });
+                }
+            });
+        };
+
+        // 讀取檔案
+        function readFile(file, callback) {
+            const reader = new FileReader();
+            reader.onload = e => callback(e.target.result);
+            reader.readAsText(file);
+        }
+
+        // 設置拖曳功能
+        function setupDragAndDrop(zoneId, inputId, labelId, onLoaded) {
+            const zone = document.getElementById(zoneId);
+            const input = document.getElementById(inputId);
+            const label = document.getElementById(labelId);
+
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                zone.classList.add('border-indigo-500', 'bg-indigo-50/50');
+            });
+
+            zone.addEventListener('dragleave', () => {
+                zone.classList.remove('border-indigo-500', 'bg-indigo-50/50');
+            });
+
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                zone.classList.remove('border-indigo-500', 'bg-indigo-50/50');
+                if (e.dataTransfer.files.length > 0) {
+                    const file = e.dataTransfer.files[0];
+                    label.innerText = file.name;
+                    input.files = e.dataTransfer.files; // 連動到 input 元件上
+                    readFile(file, onLoaded);
+                }
+            });
+        }
+
+        // 自訂精美 Toast
+        function showToast(type, message) {
+            const toast = document.getElementById('toast');
+            const iconContainer = document.getElementById('toast-icon');
+            const msgContainer = document.getElementById('toast-message');
+
+            msgContainer.innerText = message;
+            
+            // 變更顏色與 Icon 
+            if (type === "success") {
+                iconContainer.className = "inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg bg-emerald-100 text-emerald-500";
+                iconContainer.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"></path></svg>`;
+            } else if (type === "error") {
+                iconContainer.className = "inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg bg-rose-100 text-rose-500";
+                iconContainer.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path></svg>`;
+            } else {
+                iconContainer.className = "inline-flex items-center justify-center flex-shrink-0 w-8 h-8 rounded-lg bg-blue-100 text-blue-500";
+                iconContainer.innerHTML = `<svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>`;
+            }
+
+            // 動態滑入
+            toast.classList.remove('translate-y-[-100px]', 'opacity-0');
+            toast.classList.add('translate-y-0', 'opacity-100');
+
+            setTimeout(() => {
+                toast.classList.remove('translate-y-0', 'opacity-100');
+                toast.classList.add('translate-y-[-100px]', 'opacity-0');
+            }, 3000);
+        }
+
+        // 解析器優化
+        function parseFileContent(content) {
+            const lines = content.split(/\r?\n/);
+            const answers = {};
+            lines.forEach(line => {
+                line = line.trim();
+                if (line) {
+                    // 更進階、寬容的 Regex
+                    // 支援： "1:A", "1: A", "1：A", "1. A", "1、A", "1-A", "1 A" 
+                    const match = line.match(/^([a-zA-Z0-9_\-]+)\s*[:：.\s、\-\t,，]\s*(.*)$/);
+                    if (match) {
+                        const q = match[1].trim();
+                        const a = match[2].trim().toUpperCase();
+                        if (q && a) {
+                            answers[q] = a;
+                        }
+                    } else {
+                        // 備用方案：最傳統的分隔符號分割
+                        const parts = line.split(/[:：]/);
+                        if (parts.length === 2) {
+                            const q = parts[0].trim();
+                            const a = parts[1].trim().toUpperCase();
+                            answers[q] = a;
+                        }
+                    }
+                }
+            });
+            return answers;
+        }
+
+        // 載入 Demo 範例
+        function loadDemoData() {
+            const demoUser = "1: A\n2: B\n3: C\n4: D\n5: A\n6: B\n7: C\n8: D\n9: A\n10: B\n11: C\n12: A\n13: -\n14: B\n15: D";
+            const demoAnswer = "1: A\n2: B\n3: A\n4: D\n5: C\n6: B\n7: D\n8: D\n9: A\n10: C\n11: C\n12: A\n13: -\n14: A\n15: D";
+            
+            document.getElementById('userText').value = demoUser;
+            document.getElementById('answerText').value = demoAnswer;
+            
+            showToast("info", "已載入範例！請點擊『立即比對答案』查看成果。");
+        }
+
+        // 設定篩選模式
+        function setMode(mode) {
+            currentMode = mode;
+            const btnAll = document.getElementById('btn-mode-all');
+            const btnWrong = document.getElementById('btn-mode-wrong');
+
+            if (mode === 'all') {
+                btnAll.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btnWrong.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-800";
+            } else {
+                btnWrong.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btnAll.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-800";
+            }
+
+            // 如果已經比對過，即時刷新呈現
+            if (Object.keys(parsedCorrectAnswers).length > 0) {
+                renderResults();
+            }
+        }
+
+        // 設定呈現視圖
+        function setView(view) {
+            currentView = view;
+            const btnCards = document.getElementById('btn-view-cards');
+            const btnTable = document.getElementById('btn-view-table');
+            const cardsContainer = document.getElementById('view-container-cards');
+            const tableContainer = document.getElementById('view-container-table');
+
+            if (view === 'cards') {
+                btnCards.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btnTable.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-800";
+                cardsContainer.classList.remove('hidden');
+                tableContainer.classList.add('hidden');
+            } else {
+                btnTable.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all bg-white text-slate-800 shadow-sm";
+                btnCards.className = "flex-1 py-2 text-sm font-medium rounded-lg transition-all text-slate-600 hover:text-slate-800";
+                tableContainer.classList.remove('hidden');
+                cardsContainer.classList.add('hidden');
+            }
+
+            // 如果已經比對過，即時刷新呈現
+            if (Object.keys(parsedCorrectAnswers).length > 0) {
+                renderResults();
+            }
+        }
+
+        // 重設系統
+        function resetSystem() {
+            document.getElementById('userText').value = '';
+            document.getElementById('answerText').value = '';
+            document.getElementById('userFile').value = '';
+            document.getElementById('answerFile').value = '';
+            document.getElementById('userFileName').innerText = "點擊或拖曳檔案至此 (.txt)";
+            document.getElementById('answerFileName').innerText = "點擊或拖曳檔案至此 (.txt)";
+            
+            parsedUserAnswers = {};
+            parsedCorrectAnswers = {};
+
+            // 隱藏結果區
+            document.getElementById('results-section').classList.add('hidden');
+            showToast("info", "系統已重設");
+        }
+
+        // 主要比對邏輯
+        function compareAnswers() {
+            const userContent = document.getElementById('userText').value.trim();
+            const answerContent = document.getElementById('answerText').value.trim();
+
+            if (!userContent || !answerContent) {
+                showToast("error", "請輸入或上傳你的「作答檔」與「解答檔」！");
+                return;
+            }
+
+            parsedUserAnswers = parseFileContent(userContent);
+            parsedCorrectAnswers = parseFileContent(answerContent);
+
+            if (Object.keys(parsedCorrectAnswers).length === 0) {
+                showToast("error", "未能成功解析答案，請確認格式（例 1: A）");
+                return;
+            }
+
+            renderResults();
+            showToast("success", "比對完成！");
+        }
+
+        // 渲染結果呈現
+        function renderResults() {
+            const resultsSection = document.getElementById('results-section');
+            const cardsContainer = document.getElementById('view-container-cards');
+            const tableBody = document.getElementById('table-rows');
+            const emptyState = document.getElementById('empty-state');
+            const countLabel = document.getElementById('results-count-label');
+
+            // 清空舊結構
+            cardsContainer.innerHTML = '';
+            tableBody.innerHTML = '';
+            emptyState.classList.add('hidden');
+
+            let totalCount = 0;
+            let correctCount = 0;
+            let wrongCount = 0;
+            let emptyCount = 0;
+            let displayedItems = 0;
+
+            // 遍歷所有答案
+            for (const q in parsedCorrectAnswers) {
+                const correct = parsedCorrectAnswers[q];
+                const userAns = parsedUserAnswers[q] || "-";
+
+                // 跳過不計分題型 (解答為 '-')
+                if (correct === "-") continue;
+                totalCount++;
+
+                const isCorrect = (userAns === correct);
+                const isEmpty = (userAns === "-" || userAns === "");
+
+                if (isCorrect) {
+                    correctCount++;
+                } else {
+                    wrongCount++;
+                    if (isEmpty) {
+                        emptyCount++;
+                    }
+                }
+
+                // 根據篩選模式決定是否呈現
+                if (currentMode === 'wrong' && isCorrect) continue;
+                displayedItems++;
+
+                // 1. 卡片視圖建構
+                const card = document.createElement('div');
+                card.className = `p-4 rounded-xl border flex flex-col justify-between transition-all hover:scale-[1.03] duration-200 shadow-sm ${
+                    isCorrect 
+                        ? 'bg-emerald-50/40 border-emerald-100 hover:shadow-emerald-100' 
+                        : isEmpty 
+                            ? 'bg-amber-50/40 border-amber-100 hover:shadow-amber-100'
+                            : 'bg-rose-50/40 border-rose-100 hover:shadow-rose-100'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold text-slate-400">題號</span>
+                        <span class="px-2 py-0.5 rounded-full text-[10px] font-extrabold ${
+                            isCorrect 
+                                ? 'bg-emerald-100 text-emerald-800' 
+                                : isEmpty 
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-rose-100 text-rose-800'
+                        }">
+                            ${isCorrect ? '✔ 正確' : isEmpty ? '⚠ 未作答' : '✖ 錯誤'}
+                        </span>
+                    </div>
+                    <div class="my-2 text-center">
+                        <span class="text-2xl font-black text-slate-800">${q}</span>
+                    </div>
+                    <div class="grid grid-cols-2 gap-1 border-t border-slate-100 pt-2 text-xs">
+                        <div class="text-center">
+                            <p class="text-slate-400 text-[10px]">我的</p>
+                            <p class="font-extrabold text-sm ${isCorrect ? 'text-emerald-600' : 'text-rose-500'}">${userAns}</p>
+                        </div>
+                        <div class="text-center border-l border-slate-100">
+                            <p class="text-slate-400 text-[10px]">正確</p>
+                            <p class="font-extrabold text-sm text-slate-700">${correct}</p>
+                        </div>
+                    </div>
+                `;
+                cardsContainer.appendChild(card);
+
+                // 2. 表格視圖建構
+                const tr = document.createElement('tr');
+                tr.className = `hover:bg-slate-50 transition-colors ${
+                    isCorrect 
+                        ? 'bg-emerald-50/20' 
+                        : isEmpty 
+                            ? 'bg-amber-50/20'
+                            : 'bg-rose-50/20'
+                }`;
+
+                tr.innerHTML = `
+                    <td class="py-3.5 px-4 font-bold text-slate-800">${q}</td>
+                    <td class="py-3.5 px-4 font-mono font-bold ${isCorrect ? 'text-emerald-600' : 'text-rose-500'}">${userAns}</td>
+                    <td class="py-3.5 px-4 font-mono font-bold text-slate-700">${correct}</td>
+                    <td class="py-3.5 px-4">
+                        <span class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
+                            isCorrect 
+                                ? 'bg-emerald-100 text-emerald-800' 
+                                : isEmpty 
+                                    ? 'bg-amber-100 text-amber-800'
+                                    : 'bg-rose-100 text-rose-800'
+                        }">
+                            <span>${isCorrect ? '✔ 正確' : isEmpty ? '⚠ 未作答' : '✖ 錯誤'}</span>
+                        </span>
+                    </td>
+                `;
+                tableBody.appendChild(tr);
+            }
+
+            // 判斷是否無顯示資料
+            if (displayedItems === 0) {
+                emptyState.classList.remove('hidden');
+                cardsContainer.classList.add('hidden');
+                document.getElementById('view-container-table').classList.add('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                if (currentView === 'cards') {
+                    cardsContainer.classList.remove('hidden');
+                } else {
+                    document.getElementById('view-container-table').classList.remove('hidden');
+                }
+            }
+
+            // 更新詳情數量標記
+            countLabel.innerText = `共顯示 ${displayedItems} 題`;
+
+            // 計算與顯示分數
+            const rawScore = totalCount > 0 ? (correctCount / totalCount) * 100 : 0;
+            const scoreInteger = Math.floor(rawScore);
+            const scoreDecimal = (rawScore % 1).toFixed(1).slice(1); // 取 .X
+
+            document.getElementById('score-text-integer').innerText = scoreInteger;
+            document.getElementById('score-text-decimal').innerText = scoreDecimal;
+
+            // 更新 SVG 進度條 (半徑50 => 周長 2 * pi * r = 314.16)
+            const circumference = 314.16;
+            const offset = circumference - (rawScore / 100) * circumference;
+            const scoreRing = document.getElementById('score-ring');
+            scoreRing.style.strokeDashoffset = offset;
+
+            // 分數主題顏色變換
+            const scoreBadge = document.getElementById('score-level-badge');
+            if (rawScore >= 85) {
+                scoreRing.style.stroke = "#10b981"; // 綠色
+                scoreBadge.className = "mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-emerald-100 text-emerald-800";
+                scoreBadge.innerText = "🎉 表現卓越！非常棒！";
+            } else if (rawScore >= 60) {
+                scoreRing.style.stroke = "#4f46e5"; // 藍色
+                scoreBadge.className = "mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800";
+                scoreBadge.innerText = "👍 通過標準，再接再厲！";
+            } else {
+                scoreRing.style.stroke = "#f43f5e"; // 紅色
+                scoreBadge.className = "mt-4 px-3 py-1 rounded-full text-xs font-semibold bg-rose-100 text-rose-800";
+                scoreBadge.innerText = "💪 仍有進步空間，繼續加油！";
+            }
+
+            // 更新統計卡片
+            document.getElementById('stat-total').innerText = totalCount;
+            document.getElementById('stat-correct').innerText = correctCount;
+            document.getElementById('stat-wrong').innerText = wrongCount;
+            document.getElementById('stat-empty').innerText = emptyCount;
+
+            const correctPercent = totalCount > 0 ? ((correctCount / totalCount) * 100).toFixed(1) : 0;
+            const wrongPercent = totalCount > 0 ? (((wrongCount) / totalCount) * 100).toFixed(1) : 0;
+            document.getElementById('stat-correct-percent').innerText = `正確率: ${correctPercent}%`;
+            document.getElementById('stat-wrong-percent').innerText = `錯誤率: ${wrongPercent}%`;
+
+            // 滑動展開呈現結果
+            resultsSection.classList.remove('hidden');
+            setTimeout(() => {
+                resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
+            }, 100);
+        }
+    </script>
+</body>
+</html>
